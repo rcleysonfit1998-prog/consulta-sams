@@ -376,10 +376,10 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 12px;
+    font-size: 13px;
     padding: 4px 10px;
     border-radius: 6px;
-    font-weight: 500;
+    font-weight: 700;
   }
 
   .badge-active { background: var(--green-bg); color: var(--green); }
@@ -487,11 +487,9 @@
   </header>
 
   <!-- WORKER NOTICE -->
-  <!--
-  <div class="cors-notice" style="margin-bottom:20px;" id="worker-notice">
+  <!-- <div class="cors-notice" style="margin-bottom:20px;" id="worker-notice">
     ⚙️ &nbsp;Configure a URL do seu Cloudflare Worker no arquivo <code style="background:#ffffff15;padding:1px 6px;border-radius:4px;">index.html</code> na variável <code style="background:#ffffff15;padding:1px 6px;border-radius:4px;">WORKER_URL</code>. Veja o <code>worker.js</code> para instruções de deploy.
-  </div>
-  -->
+  </div> -->
 
   <!-- FORM CARD -->
   <div class="card">
@@ -691,11 +689,14 @@ function renderResults(data, cpf, nasc) {
   const cards = [];
 
   cupons.forEach(c => {
+    const ativo = !c.ativavel || c.dataAtivacao;
+    const statusClass = ativo ? 'badge-active' : 'badge-inactive';
+    const statusLabel = ativo ? '● Ativo' : '○ Inativo';
     cards.push(`
       <div class="result-card">
         <div class="result-header">
           <span class="result-type type-coupon">🎟️ Cupom</span>
-          <span class="result-name">${escHtml(nome)}</span>
+          <span class="result-name"><span class="badge-status ${statusClass}">${statusLabel}</span></span>
         </div>
         <div class="result-body">
           <div class="result-field">
@@ -707,16 +708,16 @@ function renderResults(data, cpf, nasc) {
             <span class="result-field-value">R$ ${escHtml(c.pedidoMin || '0.00')}</span>
           </div>
           <div class="result-field">
-            <span class="result-field-label">Validade</span>
-            <span class="result-field-value">${escHtml(formatDateResult(c.datUtilizacaoFim || c.dataAtivacaoFim))}</span>
-          </div>
-          <div class="result-field">
             <span class="result-field-label">CPF</span>
             <span class="result-field-value">${escHtml(cpf)}</span>
           </div>
           <div class="result-field">
             <span class="result-field-label">Nascimento</span>
             <span class="result-field-value">${escHtml(nasc)}</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">Validade</span>
+            <span class="result-field-value">${escHtml(formatDateResult(c.datUtilizacaoFim || c.dataAtivacaoFim))}</span>
           </div>
         </div>
       </div>`);
@@ -730,7 +731,7 @@ function renderResults(data, cpf, nasc) {
       <div class="result-card">
         <div class="result-header">
           <span class="result-type type-cashback">💰 Cashback</span>
-          <span class="result-name">${escHtml(nome)}</span>
+          <span class="result-name"><span class="badge-status ${statusClass}">${statusLabel}</span></span>
         </div>
         <div class="result-body">
           <div class="result-field">
@@ -742,20 +743,16 @@ function renderResults(data, cpf, nasc) {
             <span class="result-field-value">R$ ${escHtml(cb.saldo || cb.valor || '—')}</span>
           </div>
           <div class="result-field">
-            <span class="result-field-label">Validade</span>
-            <span class="result-field-value">${escHtml(formatDateResult(cb.datUtilizacaoFim || cb.dataAtivacaoFim))}</span>
-          </div>
-          <div class="result-field">
-            <span class="result-field-label">Status</span>
-            <span class="result-field-value"><span class="badge-status ${statusClass}">${statusLabel}</span></span>
-          </div>
-          <div class="result-field">
             <span class="result-field-label">CPF</span>
             <span class="result-field-value">${escHtml(cpf)}</span>
           </div>
           <div class="result-field">
             <span class="result-field-label">Nascimento</span>
             <span class="result-field-value">${escHtml(nasc)}</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">Validade</span>
+            <span class="result-field-value">${escHtml(formatDateResult(cb.datUtilizacaoFim || cb.dataAtivacaoFim))}</span>
           </div>
         </div>
       </div>`);

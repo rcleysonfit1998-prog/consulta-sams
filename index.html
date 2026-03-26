@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sam's Club — Consulta de Cupons & Cashback</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c24;
+    --border: #242833;
+    --accent: #0069d9;
+    --accent-glow: #0069d960;
+    --green: #00c97a;
+    --green-bg: #00c97a12;
+    --yellow: #f5c518;
+    --yellow-bg: #f5c51812;
+    --red: #ff4d4d;
+    --red-bg: #ff4d4d12;
+    --text: #e8eaf0;
+    --muted: #5a6278;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow blob */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 700px; height: 500px;
+    background: radial-gradient(ellipse, #0069d930 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 760px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 40px;
+    text-align: center;
+  }
+
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 6px 16px 6px 8px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: clamp(28px, 5vw, 42px);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #ffffff 30%, #6b9fff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .card-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .card-header .icon {
+    font-size: 14px;
+  }
+
+  /* ── FORM ── */
+  .form-body {
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 520px) {
+    .field-row { grid-template-columns: 1fr; }
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    letter-spacing: 0.05em;
+    width: 100%;
+  }
+
+  input::placeholder { color: var(--muted); opacity: 0.6; }
+
+  input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  input.error { border-color: var(--red); box-shadow: 0 0 0 3px #ff4d4d20; }
+
+  .error-msg {
+    font-size: 11px;
+    color: var(--red);
+    display: none;
+    margin-top: -4px;
+  }
+
+  .error-msg.show { display: block; }
+
+  /* ── BUTTON ── */
+  .btn-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  button {
+    cursor: pointer;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 28px;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    flex: 1;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #ffffff20 0%, transparent 60%);
+  }
+
+  .btn-primary:hover { background: #0078f5; transform: translateY(-1px); box-shadow: 0 8px 24px #0069d950; }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 14px 18px;
+  }
+
+  .btn-secondary:hover { color: var(--text); border-color: var(--muted); }
+
+  /* ── SPINNER ── */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid #ffffff40;
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESULTS ── */
+  #results { display: flex; flex-direction: column; gap: 16px; }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    animation: slideUp 0.3s ease both;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-header {
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .result-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 100px;
+  }
+
+  .type-coupon { background: var(--green-bg); color: var(--green); border: 1px solid #00c97a30; }
+  .type-cashback { background: var(--yellow-bg); color: var(--yellow); border: 1px solid #f5c51830; }
+
+  .result-name {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    flex: 1;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .result-body {
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+  }
+
+  .result-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .result-field-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .result-field-value {
+    font-size: 15px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .value-highlight {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 18px;
+  }
+
+  .value-green { color: var(--green); }
+  .value-yellow { color: var(--yellow); }
+
+  .badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+
+  .badge-active { background: var(--green-bg); color: var(--green); }
+  .badge-inactive { background: var(--red-bg); color: var(--red); }
+
+  /* ── EMPTY / ERROR STATES ── */
+  .state-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 48px 24px;
+    text-align: center;
+    animation: slideUp 0.3s ease both;
+  }
+
+  .state-icon { font-size: 36px; margin-bottom: 12px; }
+  .state-title { font-family: var(--sans); font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .state-sub { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* ── COPY BUTTON ── */
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--mono);
+    transition: all 0.15s;
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 400;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--muted); }
+  .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+  /* ── HISTORY ── */
+  .history-section {
+    margin-top: 8px;
+  }
+
+  .history-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 24px;
+  }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border: 1px solid transparent;
+  }
+
+  .history-item:hover { background: var(--surface2); border-color: var(--border); color: var(--text); }
+
+  .history-cpf { font-weight: 500; letter-spacing: 0.06em; }
+  .history-time { font-size: 11px; opacity: 0.6; }
+
+  .history-empty {
+    padding: 16px 24px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* ── CORS NOTICE ── */
+  .cors-notice {
+    background: #f5c51810;
+    border: 1px solid #f5c51830;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #f5c518cc;
+    line-height: 1.6;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .cors-notice a { color: var(--yellow); }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-badge">
+      <span class="logo-dot"></span>
+      Sam's Club · Consulta Manual
+    </div>
+    <h1>Cupons & Cashback</h1>
+    <p class="subtitle">Consulte cupons e cashback pelo CPF e data de nascimento</p>
+  </header>
+
+  <!-- WORKER NOTICE -->
+  <div class="cors-notice" style="margin-bottom:20px;" id="worker-notice">
+    ⚙️ &nbsp;Configure a URL do seu Cloudflare Worker no arquivo <code style="background:#ffffff15;padding:1px 6px;border-radius:4px;">index.html</code> na variável <code style="background:#ffffff15;padding:1px 6px;border-radius:4px;">WORKER_URL</code>. Veja o <code>worker.js</code> para instruções de deploy.
+  </div>
+
+  <!-- FORM CARD -->
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">🔍</span>
+      Dados para Consulta
+    </div>
+    <div class="form-body">
+      <div class="field-row">
+        <div class="field">
+          <label for="cpf">CPF</label>
+          <input id="cpf" type="text" placeholder="000.000.000-00" maxlength="14" inputmode="numeric" autocomplete="off" />
+          <span class="error-msg" id="cpf-error">CPF inválido</span>
+        </div>
+        <div class="field">
+          <label for="nasc">Data de Nascimento</label>
+          <input id="nasc" type="text" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" autocomplete="off" />
+          <span class="error-msg" id="nasc-error">Data inválida</span>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-consultar" onclick="consultar()">
+          <span class="spinner" id="spinner"></span>
+          <span id="btn-label">Consultar</span>
+        </button>
+        <button class="btn-secondary" onclick="limpar()" title="Limpar">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results"></div>
+
+  <!-- HISTORY -->
+  <div class="card history-section" id="history-card" style="margin-top:24px;display:none;">
+    <div class="card-header">
+      <span class="icon">🕘</span>
+      Histórico de Consultas
+      <button class="btn-secondary" style="margin-left:auto;padding:4px 12px;font-size:11px;border-radius:6px;" onclick="clearHistory()">Limpar</button>
+    </div>
+    <ul class="history-list" id="history-list"></ul>
+  </div>
+
+</div>
+
+<script>
+// ── FORMATAÇÃO ──────────────────────────────────────────────
+function formatCPF(v) {
+  v = v.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+  else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+  return v;
+}
+
+function formatDate(v) {
+  v = v.replace(/\D/g, '').slice(0, 8);
+  if (v.length > 4) v = v.replace(/(\d{2})(\d{2})(\d{0,4})/, '$1/$2/$3');
+  else if (v.length > 2) v = v.replace(/(\d{2})(\d{0,2})/, '$1/$2');
+  return v;
+}
+
+function formatDateResult(raw) {
+  if (!raw) return '—';
+  const s = String(raw).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; }
+  if (s.includes('T')) return s.split('T')[0].split('-').reverse().join('/');
+  return s;
+}
+
+function cleanCPF(v) { return v.replace(/\D/g, '').padStart(11, '0'); }
+
+document.getElementById('cpf').addEventListener('input', function() {
+  this.value = formatCPF(this.value);
+  clearFieldError('cpf');
+});
+
+document.getElementById('nasc').addEventListener('input', function() {
+  this.value = formatDate(this.value);
+  clearFieldError('nasc');
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') consultar();
+});
+
+// ── VALIDAÇÃO ──────────────────────────────────────────────
+function validarCPF(cpf) {
+  cpf = cleanCPF(cpf);
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += parseInt(cpf[i]) * (10 - i);
+  let r = (s * 10) % 11; if (r === 10 || r === 11) r = 0;
+  if (r !== parseInt(cpf[9])) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += parseInt(cpf[i]) * (11 - i);
+  r = (s * 10) % 11; if (r === 10 || r === 11) r = 0;
+  return r === parseInt(cpf[10]);
+}
+
+function validarData(d) { return /^\d{2}\/\d{2}\/\d{4}$/.test(d); }
+
+function setFieldError(id, msg) {
+  document.getElementById(id).classList.add('error');
+  const e = document.getElementById(id + '-error');
+  if (msg) e.textContent = msg;
+  e.classList.add('show');
+}
+
+function clearFieldError(id) {
+  document.getElementById(id).classList.remove('error');
+  document.getElementById(id + '-error').classList.remove('show');
+}
+
+// ── CONFIGURAÇÃO ─────────────────────────────────────────────
+// ⚠️ Substitua pela URL do seu Cloudflare Worker após o deploy
+const WORKER_URL = 'https://throbbing-river-d011.gilvanmarquees.workers.dev';
+
+// ── API (via Worker) ──────────────────────────────────────────
+let nonceCashback = null;
+
+async function buscarNonce() {
+  const resp = await fetch(`${WORKER_URL}/nonce`);
+  const json = await resp.json();
+  if (json.error) throw new Error(json.error);
+  return json.nonce;
+}
+
+async function consultarAPI(cpf, nasc) {
+  if (!nonceCashback) nonceCashback = await buscarNonce();
+  const body = new URLSearchParams({
+    action: 'get_cashback_user_plus',
+    number: cleanCPF(cpf),
+    birthdate: nasc,
+    nonce: nonceCashback
+  });
+  const resp = await fetch(`${WORKER_URL}/consultar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+    body: body.toString()
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const json = await resp.json();
+  return json?.data || json;
+}
+
+// ── CONSULTA ──────────────────────────────────────────────
+async function consultar() {
+  const cpfInput = document.getElementById('cpf').value;
+  const nascInput = document.getElementById('nasc').value;
+  let ok = true;
+
+  clearFieldError('cpf'); clearFieldError('nasc');
+
+  if (!validarCPF(cpfInput)) { setFieldError('cpf', 'CPF inválido'); ok = false; }
+  if (!validarData(nascInput)) { setFieldError('nasc', 'Use o formato DD/MM/AAAA'); ok = false; }
+  if (!ok) return;
+
+  setLoading(true);
+  const results = document.getElementById('results');
+  results.innerHTML = '';
+
+  try {
+    const data = await consultarAPI(cpfInput, nascInput);
+    renderResults(data, cpfInput, nascInput);
+    addHistory(cpfInput, nascInput);
+  } catch (err) {
+    results.innerHTML = `
+      <div class="state-box">
+        <div class="state-icon">🚫</div>
+        <div class="state-title">Erro na consulta</div>
+        <div class="state-sub">${escHtml(err.message)}<br><br>
+        Verifique se a extensão CORS está ativa e tente novamente.</div>
+      </div>`;
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderResults(data, cpf, nasc) {
+  const results = document.getElementById('results');
+  if (!data) {
+    results.innerHTML = '<div class="state-box"><div class="state-icon">🔒</div><div class="state-title">Sem resultado</div><div class="state-sub">Nenhum dado encontrado para este CPF e data de nascimento.</div></div>';
+    return;
+  }
+
+  const nome = (data.name || data.nome || '').toUpperCase() || '—';
+  const cupons = Array.isArray(data.cupom) ? data.cupom : [];
+  const cashbacks = Array.isArray(data.cashback) ? data.cashback : [];
+
+  if (cupons.length === 0 && cashbacks.length === 0) {
+    results.innerHTML = `<div class="state-box"><div class="state-icon">📭</div><div class="state-title">Nenhum benefício ativo</div><div class="state-sub">CPF encontrado, mas sem cupons ou cashback disponíveis.</div></div>`;
+    return;
+  }
+
+  const cards = [];
+
+  cupons.forEach(c => {
+    cards.push(`
+      <div class="result-card">
+        <div class="result-header">
+          <span class="result-type type-coupon">🎟️ Cupom</span>
+          <span class="result-name">${escHtml(nome)}</span>
+        </div>
+        <div class="result-body">
+          <div class="result-field">
+            <span class="result-field-label">Valor</span>
+            <span class="result-field-value value-highlight value-green">R$ ${escHtml(c.valor || '—')}</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">Pedido mínimo</span>
+            <span class="result-field-value">R$ ${escHtml(c.pedidoMin || '0.00')}</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">Validade</span>
+            <span class="result-field-value">${escHtml(formatDateResult(c.datUtilizacaoFim || c.dataAtivacaoFim))}</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">CPF</span>
+            <span class="result-field-value">${escHtml(cpf)}</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">Nascimento</span>
+            <span class="result-field-value">${escHtml(nasc)}</span>
+          </div>
+        </div>
+      </div>`);
+  });
+
+  cashbacks.forEach(cb => {
+    const ativo = !cb.ativavel || cb.dataAtivacao;
+    const statusClass = ativo ? 'badge-active' : 'badge-inactive';
+    const statusLabel = ativo ? '● Ativo' : '○ Inativo';
+    cards.push(`
+      <div class="result-card">
+        <div class="result-header">
+          <span class="result-type type-cashback">💰 Cashback</span>
+          <span class="result-name">${escHtml(nome)}</span>
+        </div>
+        <div class="result-body">
+          <div class="result-field">
+            <span class="result-field-label">Valor</span>
+            <span class="result-field-value value-highlight value-yellow">R$ ${escHtml(cb.valor || '—')}</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">Saldo</span>
+            <span class="result-field-value">R$ ${escHtml(cb.saldo || cb.valor || '—')}</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">Validade</span>
+            <span class="result-field-value">${escHtml(formatDateResult(cb.datUtilizacaoFim || cb.dataAtivacaoFim))}</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">Status</span>
+            <span class="result-field-value"><span class="badge-status ${statusClass}">${statusLabel}</span></span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">CPF</span>
+            <span class="result-field-value">${escHtml(cpf)}</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">Nascimento</span>
+            <span class="result-field-value">${escHtml(nasc)}</span>
+          </div>
+        </div>
+      </div>`);
+  });
+
+  results.innerHTML = cards.join('');
+}
+
+// ── HELPERS ──────────────────────────────────────────────
+function setLoading(on) {
+  const btn = document.getElementById('btn-consultar');
+  const sp = document.getElementById('spinner');
+  const lbl = document.getElementById('btn-label');
+  btn.disabled = on;
+  sp.style.display = on ? 'block' : 'none';
+  lbl.textContent = on ? 'Consultando…' : 'Consultar';
+}
+
+function limpar() {
+  document.getElementById('cpf').value = '';
+  document.getElementById('nasc').value = '';
+  document.getElementById('results').innerHTML = '';
+  clearFieldError('cpf'); clearFieldError('nasc');
+  nonceCashback = null;
+}
+
+function escHtml(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── HISTORY ──────────────────────────────────────────────
+function addHistory(cpf, nasc) {
+  const h = JSON.parse(localStorage.getItem('consultas') || '[]');
+  h.unshift({ cpf, nasc, t: Date.now() });
+  localStorage.setItem('consultas', JSON.stringify(h.slice(0, 20)));
+  renderHistory();
+}
+
+function renderHistory() {
+  const h = JSON.parse(localStorage.getItem('consultas') || '[]');
+  const card = document.getElementById('history-card');
+  const list = document.getElementById('history-list');
+  if (h.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  list.innerHTML = h.map(item => `
+    <li class="history-item" onclick="preencherHistorico('${escHtml(item.cpf)}','${escHtml(item.nasc)}')">
+      <span class="history-cpf">${escHtml(item.cpf)}</span>
+      <span style="color:var(--muted);font-size:12px;">${escHtml(item.nasc)}</span>
+      <span class="history-time">${timeAgo(item.t)}</span>
+    </li>`).join('');
+}
+
+function preencherHistorico(cpf, nasc) {
+  document.getElementById('cpf').value = cpf;
+  document.getElementById('nasc').value = nasc;
+  document.getElementById('results').innerHTML = '';
+}
+
+function clearHistory() {
+  localStorage.removeItem('consultas');
+  renderHistory();
+}
+
+function timeAgo(ts) {
+  const d = Math.floor((Date.now() - ts) / 1000);
+  if (d < 60) return `${d}s atrás`;
+  if (d < 3600) return `${Math.floor(d/60)}min atrás`;
+  if (d < 86400) return `${Math.floor(d/3600)}h atrás`;
+  return `${Math.floor(d/86400)}d atrás`;
+}
+
+// ── INIT ──────────────────────────────────────────────────
+renderHistory();
+</script>
+</body>
+</html>

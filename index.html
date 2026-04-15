@@ -486,6 +486,11 @@
     <p class="subtitle">Consulte cupons e cashback pelo CPF e data de nascimento</p>
   </header>
 
+  <!-- WORKER NOTICE -->
+  <!-- <div class="cors-notice" style="margin-bottom:20px;" id="worker-notice">
+    ⚙️ &nbsp;Configure a URL do seu Cloudflare Worker no arquivo <code style="background:#ffffff15;padding:1px 6px;border-radius:4px;">index.html</code> na variável <code style="background:#ffffff15;padding:1px 6px;border-radius:4px;">WORKER_URL</code>. Veja o <code>worker.js</code> para instruções de deploy.
+  </div> -->
+
   <!-- FORM CARD -->
   <div class="card">
     <div class="card-header">
@@ -612,7 +617,7 @@ async function buscarNonces() {
   const resp = await fetch(`${WORKER_URL}/nonce`);
   const json = await resp.json();
   if (json.error) throw new Error(json.error);
-  // Suporta tanto o Worker antigo (que retorna apenas "nonce") quanto um atualizado
+  // Suporta tanto o Worker antigo quanto um atualizado
   nonceRenew = json.nonceRenew || json.nonce;
   nonceCashback = json.nonceCashback || json.nonce;
 }
@@ -745,7 +750,7 @@ function renderResults(data, cpf, nasc) {
   }
 
   const nome = (data.name || data.nome || '').toUpperCase() || '—';
-  const cupons = Array.isArray(data.cupom) ? data.cupom : [];
+  const cupons = Array.isArray(data.cupom) ? data.cupom :[];
   const cashbacks = Array.isArray(data.cashback) ? data.cashback :[];
 
   if (cupons.length === 0 && cashbacks.length === 0) {
@@ -753,7 +758,7 @@ function renderResults(data, cpf, nasc) {
     return;
   }
 
-  const cards =[];
+  const cards = [];
 
   cupons.forEach(c => {
     const ativo = !c.ativavel || c.dataAtivacao;
@@ -851,7 +856,6 @@ function limpar() {
   document.getElementById('nasc').value = '';
   document.getElementById('results').innerHTML = '';
   clearFieldError('cpf'); clearFieldError('nasc');
-  nonceRenew = null;
   nonceCashback = null;
 }
 
@@ -870,4 +874,40 @@ function addHistory(cpf, nasc) {
 }
 
 function renderHistory() {
-  const h = JSON.parse(localStorage.getItem('consultas') || '
+  const h = JSON.parse(localStorage.getItem('consultas') || '[]');
+  const card = document.getElementById('history-card');
+  const list = document.getElementById('history-list');
+  if (h.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  list.innerHTML = h.map(item => `
+    <li class="history-item" onclick="preencherHistorico('${escHtml(item.cpf)}','${escHtml(item.nasc)}')">
+      <span class="history-cpf">${escHtml(item.cpf)}</span>
+      <span style="color:var(--muted);font-size:12px;">${escHtml(item.nasc)}</span>
+      <span class="history-time">${timeAgo(item.t)}</span>
+    </li>`).join('');
+}
+
+function preencherHistorico(cpf, nasc) {
+  document.getElementById('cpf').value = cpf;
+  document.getElementById('nasc').value = nasc;
+  document.getElementById('results').innerHTML = '';
+}
+
+function clearHistory() {
+  localStorage.removeItem('consultas');
+  renderHistory();
+}
+
+function timeAgo(ts) {
+  const d = Math.floor((Date.now() - ts) / 1000);
+  if (d < 60) return `${d}s atrás`;
+  if (d < 3600) return `${Math.floor(d/60)}min atrás`;
+  if (d < 86400) return `${Math.floor(d/3600)}h atrás`;
+  return `${Math.floor(d/86400)}d atrás`;
+}
+
+// ── INIT ──────────────────────────────────────────────────
+renderHistory();
+</script>
+</body>
+</html>

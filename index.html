@@ -610,68 +610,19 @@ function clearFieldError(id) {
 const WORKER_URL = 'https://throbbing-river-d011.gilvanmarquees.workers.dev';
 
 // ── API (via Worker) ──────────────────────────────────────────
-let nonceRenew = null;
 let nonceCashback = null;
+let sessionCookie = null; // Variável para guardar a sessão
 
 async function buscarNonces() {
   const resp = await fetch(`${WORKER_URL}/nonce`);
   const json = await resp.json();
   if (json.error) throw new Error(json.error);
-  // Suporta tanto o Worker antigo quanto um atualizado
-  nonceRenew = json.nonceRenew || json.nonce;
+  
   nonceCashback = json.nonceCashback || json.nonce;
+  sessionCookie = json.cookie; // Salva o cookie retornado pelo Worker
 }
 
-// 1. Verifica se é Sócio
-async function verificarSeESocio(cpf, nasc) {
-  if (!nonceRenew) await buscarNonces();
-
-  const bodyObj = {
-    document: cleanCPF(cpf),
-    birthdate: nasc,
-    cupom: "",
-    partner: "autoatendimento",
-    promoter: "",
-    subscription_type: "club",
-    subscription_value: "0",
-    utm_campaign: "totem",
-    utm_medium: "totem",
-    utm_source: "autoatendimento",
-    page_id: "239"
-  };
-
-  // Envia action e nonce na URL, e o payload como JSON
-  const resp = await fetch(`${WORKER_URL}/consultar?action=renew&nonce=${nonceRenew}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
-    body: JSON.stringify(bodyObj)
-  });
-
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const json = await resp.json();
-
-  if (json.success === true) {
-    return { isSocio: true, msg: 'Aprovado para renovação' };
-  }
-
-  const dataStr = typeof json.data === 'string' ? json.data.toLowerCase() : JSON.stringify(json.data || '').toLowerCase();
-
-  const termosSocioAtivo =[
-    'período de renovação', 'renovação automática', 'não é necessário realizar o pagamento',
-    'já possui', 'assinatura ativa', 'dependente', 'titular', 'checkout', 'sócio ativo',
-    'não pode realizar a renovação'
-  ];
-
-  for (let termo of termosSocioAtivo) {
-    if (dataStr.includes(termo)) {
-      return { isSocio: true, msg: dataStr };
-    }
-  }
-
-  return { isSocio: false, msg: dataStr || 'Sem mensagem da API' };
-}
-
-// 2. Consulta os benefícios
+// Consulta direta dos benefícios (cashback e cupom)
 async function consultarBeneficios(cpf, nasc) {
   if (!nonceCashback) await buscarNonces();
 
@@ -684,7 +635,10 @@ async function consultarBeneficios(cpf, nasc) {
 
   const resp = await fetch(`${WORKER_URL}/consultar`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+    headers: { 
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Session-Cookie': sessionCookie || '' // Envia o cookie para o Worker
+    },
     body: body.toString()
   });
 
@@ -709,22 +663,21 @@ async function consultar() {
   results.innerHTML = '';
 
   try {
-    // PASSO 1: Verificar se é sócio
-    const status = await verificarSeESocio(cpfInput, nascInput);
-
-    if (!status.isSocio) {
-      results.innerHTML = `
-        <div class="state-box">
-          <div class="state-icon">🚫</div>
-          <div class="state-title">Não é Sócio Ativo</div>
-          <div class="state-sub">Motivo retornado: <br><strong style="color:var(--muted);">${escHtml(status.msg)}</strong></div>
-        </div>`;
-      setLoading(false);
-      return;
+    // Consulta diretamente o Cashback/Cupom sem passar pela renovação
+    const dataJson = await consultarBeneficios(cpfInput, nascInput);
+    
+    // Se a API retornar ["invalid"], significa que os dados não batem ou não tem benefício
+    if (Array.isArray(dataJson) && dataJson[0] === "invalid") {
+        results.innerHTML = `
+          <div class="state-box">
+            <div class="state-icon">🚫</div>
+            <div class="state-title">Dados Inválidos ou Sem Benefícios</div>
+            <div class="state-sub">O CPF/Data não conferem, ou o usuário não possui conta ativa com benefícios.</div>
+          </div>`;
+        setLoading(false);
+        return;
     }
 
-    // PASSO 2: Consultar Benefícios
-    const dataJson = await consultarBeneficios(cpfInput, nascInput);
     const data = dataJson?.data || dataJson;
 
     renderResults(data, cpfInput, nascInput);
@@ -750,11 +703,11 @@ function renderResults(data, cpf, nasc) {
   }
 
   const nome = (data.name || data.nome || '').toUpperCase() || '—';
-  const cupons = Array.isArray(data.cupom) ? data.cupom :[];
-  const cashbacks = Array.isArray(data.cashback) ? data.cashback :[];
+  const cupons = Array.isArray(data.cupom) ? data.cupom : [];
+  const cashbacks = Array.isArray(data.cashback) ? data.cashback : [];
 
   if (cupons.length === 0 && cashbacks.length === 0) {
-    results.innerHTML = `<div class="state-box"><div class="state-icon">📭</div><div class="state-title">Nenhum benefício ativo</div><div class="state-sub">O cliente é Sócio Ativo, mas sem cupons ou cashback disponíveis no momento.</div></div>`;
+    results.innerHTML = `<div class="state-box"><div class="state-icon">📭</div><div class="state-title">Nenhum benefício ativo</div><div class="state-sub">CPF encontrado, mas sem cupons ou cashback disponíveis.</div></div>`;
     return;
   }
 
@@ -857,6 +810,7 @@ function limpar() {
   document.getElementById('results').innerHTML = '';
   clearFieldError('cpf'); clearFieldError('nasc');
   nonceCashback = null;
+  sessionCookie = null;
 }
 
 function escHtml(s) {

@@ -486,11 +486,6 @@
     <p class="subtitle">Consulte cupons e cashback pelo CPF e data de nascimento</p>
   </header>
 
-  <!-- WORKER NOTICE -->
-  <!-- <div class="cors-notice" style="margin-bottom:20px;" id="worker-notice">
-    ⚙️ &nbsp;Configure a URL do seu Cloudflare Worker no arquivo <code style="background:#ffffff15;padding:1px 6px;border-radius:4px;">index.html</code> na variável <code style="background:#ffffff15;padding:1px 6px;border-radius:4px;">WORKER_URL</code>. Veja o <code>worker.js</code> para instruções de deploy.
-  </div> -->
-
   <!-- FORM CARD -->
   <div class="card">
     <div class="card-header">
@@ -610,31 +605,86 @@ function clearFieldError(id) {
 const WORKER_URL = 'https://throbbing-river-d011.gilvanmarquees.workers.dev';
 
 // ── API (via Worker) ──────────────────────────────────────────
+let nonceRenew = null;
 let nonceCashback = null;
 
-async function buscarNonce() {
+async function buscarNonces() {
   const resp = await fetch(`${WORKER_URL}/nonce`);
   const json = await resp.json();
   if (json.error) throw new Error(json.error);
-  return json.nonce;
+  // Suporta tanto o Worker antigo (que retorna apenas "nonce") quanto um atualizado
+  nonceRenew = json.nonceRenew || json.nonce;
+  nonceCashback = json.nonceCashback || json.nonce;
 }
 
-async function consultarAPI(cpf, nasc) {
-  if (!nonceCashback) nonceCashback = await buscarNonce();
+// 1. Verifica se é Sócio
+async function verificarSeESocio(cpf, nasc) {
+  if (!nonceRenew) await buscarNonces();
+
+  const bodyObj = {
+    document: cleanCPF(cpf),
+    birthdate: nasc,
+    cupom: "",
+    partner: "autoatendimento",
+    promoter: "",
+    subscription_type: "club",
+    subscription_value: "0",
+    utm_campaign: "totem",
+    utm_medium: "totem",
+    utm_source: "autoatendimento",
+    page_id: "239"
+  };
+
+  // Envia action e nonce na URL, e o payload como JSON
+  const resp = await fetch(`${WORKER_URL}/consultar?action=renew&nonce=${nonceRenew}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+    body: JSON.stringify(bodyObj)
+  });
+
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const json = await resp.json();
+
+  if (json.success === true) {
+    return { isSocio: true, msg: 'Aprovado para renovação' };
+  }
+
+  const dataStr = typeof json.data === 'string' ? json.data.toLowerCase() : JSON.stringify(json.data || '').toLowerCase();
+
+  const termosSocioAtivo =[
+    'período de renovação', 'renovação automática', 'não é necessário realizar o pagamento',
+    'já possui', 'assinatura ativa', 'dependente', 'titular', 'checkout', 'sócio ativo',
+    'não pode realizar a renovação'
+  ];
+
+  for (let termo of termosSocioAtivo) {
+    if (dataStr.includes(termo)) {
+      return { isSocio: true, msg: dataStr };
+    }
+  }
+
+  return { isSocio: false, msg: dataStr || 'Sem mensagem da API' };
+}
+
+// 2. Consulta os benefícios
+async function consultarBeneficios(cpf, nasc) {
+  if (!nonceCashback) await buscarNonces();
+
   const body = new URLSearchParams({
     action: 'get_cashback_user_plus',
     number: cleanCPF(cpf),
     birthdate: nasc,
     nonce: nonceCashback
   });
+
   const resp = await fetch(`${WORKER_URL}/consultar`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
     body: body.toString()
   });
+
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const json = await resp.json();
-  return json?.data || json;
+  return await resp.json();
 }
 
 // ── CONSULTA ──────────────────────────────────────────────
@@ -654,16 +704,33 @@ async function consultar() {
   results.innerHTML = '';
 
   try {
-    const data = await consultarAPI(cpfInput, nascInput);
+    // PASSO 1: Verificar se é sócio
+    const status = await verificarSeESocio(cpfInput, nascInput);
+
+    if (!status.isSocio) {
+      results.innerHTML = `
+        <div class="state-box">
+          <div class="state-icon">🚫</div>
+          <div class="state-title">Não é Sócio Ativo</div>
+          <div class="state-sub">Motivo retornado: <br><strong style="color:var(--muted);">${escHtml(status.msg)}</strong></div>
+        </div>`;
+      setLoading(false);
+      return;
+    }
+
+    // PASSO 2: Consultar Benefícios
+    const dataJson = await consultarBeneficios(cpfInput, nascInput);
+    const data = dataJson?.data || dataJson;
+
     renderResults(data, cpfInput, nascInput);
     addHistory(cpfInput, nascInput);
   } catch (err) {
     results.innerHTML = `
       <div class="state-box">
-        <div class="state-icon">🚫</div>
+        <div class="state-icon">⚠️</div>
         <div class="state-title">Erro na consulta</div>
         <div class="state-sub">${escHtml(err.message)}<br><br>
-        Verifique se a extensão CORS está ativa e tente novamente.</div>
+        Verifique a conexão ou se o Worker está configurado corretamente.</div>
       </div>`;
   } finally {
     setLoading(false);
@@ -679,14 +746,14 @@ function renderResults(data, cpf, nasc) {
 
   const nome = (data.name || data.nome || '').toUpperCase() || '—';
   const cupons = Array.isArray(data.cupom) ? data.cupom : [];
-  const cashbacks = Array.isArray(data.cashback) ? data.cashback : [];
+  const cashbacks = Array.isArray(data.cashback) ? data.cashback :[];
 
   if (cupons.length === 0 && cashbacks.length === 0) {
-    results.innerHTML = `<div class="state-box"><div class="state-icon">📭</div><div class="state-title">Nenhum benefício ativo</div><div class="state-sub">CPF encontrado, mas sem cupons ou cashback disponíveis.</div></div>`;
+    results.innerHTML = `<div class="state-box"><div class="state-icon">📭</div><div class="state-title">Nenhum benefício ativo</div><div class="state-sub">O cliente é Sócio Ativo, mas sem cupons ou cashback disponíveis no momento.</div></div>`;
     return;
   }
 
-  const cards = [];
+  const cards =[];
 
   cupons.forEach(c => {
     const ativo = !c.ativavel || c.dataAtivacao;
@@ -784,6 +851,7 @@ function limpar() {
   document.getElementById('nasc').value = '';
   document.getElementById('results').innerHTML = '';
   clearFieldError('cpf'); clearFieldError('nasc');
+  nonceRenew = null;
   nonceCashback = null;
 }
 
@@ -802,40 +870,4 @@ function addHistory(cpf, nasc) {
 }
 
 function renderHistory() {
-  const h = JSON.parse(localStorage.getItem('consultas') || '[]');
-  const card = document.getElementById('history-card');
-  const list = document.getElementById('history-list');
-  if (h.length === 0) { card.style.display = 'none'; return; }
-  card.style.display = '';
-  list.innerHTML = h.map(item => `
-    <li class="history-item" onclick="preencherHistorico('${escHtml(item.cpf)}','${escHtml(item.nasc)}')">
-      <span class="history-cpf">${escHtml(item.cpf)}</span>
-      <span style="color:var(--muted);font-size:12px;">${escHtml(item.nasc)}</span>
-      <span class="history-time">${timeAgo(item.t)}</span>
-    </li>`).join('');
-}
-
-function preencherHistorico(cpf, nasc) {
-  document.getElementById('cpf').value = cpf;
-  document.getElementById('nasc').value = nasc;
-  document.getElementById('results').innerHTML = '';
-}
-
-function clearHistory() {
-  localStorage.removeItem('consultas');
-  renderHistory();
-}
-
-function timeAgo(ts) {
-  const d = Math.floor((Date.now() - ts) / 1000);
-  if (d < 60) return `${d}s atrás`;
-  if (d < 3600) return `${Math.floor(d/60)}min atrás`;
-  if (d < 86400) return `${Math.floor(d/3600)}h atrás`;
-  return `${Math.floor(d/86400)}d atrás`;
-}
-
-// ── INIT ──────────────────────────────────────────────────
-renderHistory();
-</script>
-</body>
-</html>
+  const h = JSON.parse(localStorage.getItem('consultas') || '

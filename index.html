@@ -611,15 +611,17 @@ const WORKER_URL = 'https://throbbing-river-d011.gilvanmarquees.workers.dev';
 
 // ── API (via Worker) ──────────────────────────────────────────
 let nonceCashback = null;
-let sessionCookie = null; // Variável para guardar a sessão
+let sessionCookie = null;
 
 async function buscarNonces() {
   const resp = await fetch(`${WORKER_URL}/nonce`);
   const json = await resp.json();
   if (json.error) throw new Error(json.error);
   
-  nonceCashback = json.nonceCashback || json.nonce;
-  sessionCookie = json.cookie; // Salva o cookie retornado pelo Worker
+  if (!json.nonceCashback) throw new Error("Nonce de cashback não encontrado no site.");
+  
+  nonceCashback = json.nonceCashback;
+  sessionCookie = json.cookie;
 }
 
 // Consulta direta dos benefícios (cashback e cupom)
@@ -637,12 +639,19 @@ async function consultarBeneficios(cpf, nasc) {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      'X-Session-Cookie': sessionCookie || '' // Envia o cookie para o Worker
+      'X-Session-Cookie': sessionCookie || ''
     },
     body: body.toString()
   });
 
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  if (!resp.ok) {
+    // Se der erro 403, a sessão expirou. Limpamos o nonce para forçar renovação na próxima.
+    if (resp.status === 403) {
+      nonceCashback = null; 
+    }
+    throw new Error(`HTTP ${resp.status} - Acesso negado ou sessão expirada.`);
+  }
+  
   return await resp.json();
 }
 
@@ -663,10 +672,9 @@ async function consultar() {
   results.innerHTML = '';
 
   try {
-    // Consulta diretamente o Cashback/Cupom sem passar pela renovação
+    // Consulta diretamente o Cashback/Cupom
     const dataJson = await consultarBeneficios(cpfInput, nascInput);
     
-    // Se a API retornar ["invalid"], significa que os dados não batem ou não tem benefício
     if (Array.isArray(dataJson) && dataJson[0] === "invalid") {
         results.innerHTML = `
           <div class="state-box">
@@ -688,7 +696,7 @@ async function consultar() {
         <div class="state-icon">⚠️</div>
         <div class="state-title">Erro na consulta</div>
         <div class="state-sub">${escHtml(err.message)}<br><br>
-        Verifique a conexão ou se o Worker está configurado corretamente.</div>
+        Tente clicar em consultar novamente. Se persistir, verifique o Worker.</div>
       </div>`;
   } finally {
     setLoading(false);
@@ -805,12 +813,20 @@ function setLoading(on) {
 }
 
 function limpar() {
+  // 1. Limpa os campos de digitação
   document.getElementById('cpf').value = '';
   document.getElementById('nasc').value = '';
+  
+  // 2. Limpa a área onde aparecem os cupons/cashback
   document.getElementById('results').innerHTML = '';
-  clearFieldError('cpf'); clearFieldError('nasc');
+  
+  // 3. Remove os alertas de erro em vermelho (se houver)
+  clearFieldError('cpf'); 
+  clearFieldError('nasc');
+  
+  // 4. Reseta as variáveis de conexão (Força buscar uma nova sessão na próxima consulta)
   nonceCashback = null;
-  sessionCookie = null;
+  sessionCookie = null; // <-- Adicionamos essa linha!
 }
 
 function escHtml(s) {
